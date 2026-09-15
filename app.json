@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "KidSync",
+    "slug": "kidsync",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#4F46E5"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kidsync.app",
+      "infoPlist": {
+        "NSContactsUsageDescription": "KidSync needs access to your contacts so you can invite and coordinate carpools and events with other parents.",
+        "NSCalendarsUsageDescription": "KidSync allows you to sync club fixtures, parties, and booked events directly into your phone calendar."
+      }
+    },
+    "android": {
+      "package": "com.kidsync.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#4F46E5"
+      },
+      "permissions": [
+        "READ_CONTACTS",
+        "WRITE_CONTACTS",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow KidSync to access your contacts to easily invite and coordinate carpools with parents."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow KidSync to sync booked matches and parties to your calendar."
+        }
+      ]
+    ]
+  }
+}
