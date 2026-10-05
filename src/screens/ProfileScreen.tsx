@@ -30,7 +30,16 @@ import {
 import { MonotoneTheme } from '../constants/theme';
 
 export const ProfileScreen: React.FC = () => {
-  const { parent, children, contacts, syncDeviceContacts, deleteChild, logoutAndReset } = useApp();
+  const {
+    parent,
+    children,
+    circles,
+    contacts,
+    syncDeviceContacts,
+    deleteChild,
+    logoutAndReset,
+    joinCircleWithCode,
+  } = useApp();
   const [showAddChildModal, setShowAddChildModal] = useState(false);
   const [syncingContacts, setSyncingContacts] = useState(false);
   const [autoCalendarSync, setAutoCalendarSync] = useState(true);
@@ -142,6 +151,65 @@ export const ProfileScreen: React.FC = () => {
                 </Text>
               </View>
             )}
+          </View>
+        ))}
+      </View>
+
+      {/* Joined Classes & Groups Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Joined Classes & Groups ({circles.length})</Text>
+          <TouchableOpacity
+            style={styles.addChildBtn}
+            onPress={() => {
+              const code = prompt('Enter Class or Group Invite Code (e.g. YEAR4-OAK, U10-STRIKERS):');
+              if (code) {
+                const res = joinCircleWithCode(code);
+                Alert.alert(res.success ? 'Joined Group 🎉' : 'Notice', res.message);
+              }
+            }}
+            activeOpacity={0.85}
+          >
+            <Plus size={13} color="#FFFFFF" />
+            <Text style={styles.addChildBtnText}>Join Class</Text>
+          </TouchableOpacity>
+        </View>
+
+        {circles.map((c) => (
+          <View key={c.id} style={styles.groupCard}>
+            <View style={styles.groupHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.groupName}>{c.name}</Text>
+                <Text style={styles.groupCategory}>
+                  {c.category} • {c.memberCount} Parents
+                </Text>
+              </View>
+
+              <View style={styles.codeBadge}>
+                <Text style={styles.codeBadgeText}>{c.code}</Text>
+              </View>
+            </View>
+
+            {c.description && (
+              <Text style={styles.groupDesc}>{c.description}</Text>
+            )}
+
+            <View style={styles.groupFooter}>
+              <Text style={styles.adminText}>Admin: {c.adminName}</Text>
+              <TouchableOpacity
+                style={styles.shareGroupBtn}
+                onPress={() => {
+                  const invite = `Join our ${c.name} activity circle on KidSync! Invite Code: ${c.code}`;
+                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                    navigator.clipboard.writeText(invite);
+                  }
+                  Alert.alert('Invite Copied! 📋', `Share with parents:\n"${invite}"`);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.shareGroupBtnText}>Copy Invite</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
       </View>
@@ -525,5 +593,72 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: MonotoneTheme.colors.ink,
+  },
+  groupCard: {
+    backgroundColor: MonotoneTheme.colors.surface,
+    borderRadius: MonotoneTheme.radius.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: MonotoneTheme.colors.border,
+    gap: 8,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  groupName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: MonotoneTheme.colors.ink,
+  },
+  groupCategory: {
+    fontSize: 11,
+    color: MonotoneTheme.colors.ink60,
+    marginTop: 1,
+  },
+  codeBadge: {
+    backgroundColor: MonotoneTheme.colors.ink05,
+    borderWidth: 1,
+    borderColor: MonotoneTheme.colors.ink,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: MonotoneTheme.radius.xs,
+  },
+  codeBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: MonotoneTheme.colors.ink,
+    letterSpacing: 0.5,
+  },
+  groupDesc: {
+    fontSize: 11,
+    color: MonotoneTheme.colors.ink70,
+    lineHeight: 15,
+  },
+  groupFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: MonotoneTheme.colors.border,
+    paddingTop: 6,
+    marginTop: 2,
+  },
+  adminText: {
+    fontSize: 10,
+    color: MonotoneTheme.colors.ink60,
+  },
+  shareGroupBtn: {
+    backgroundColor: MonotoneTheme.colors.ink,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: MonotoneTheme.radius.xs,
+  },
+  shareGroupBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

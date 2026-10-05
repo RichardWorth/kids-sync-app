@@ -18,13 +18,26 @@ import { SketchCalendar, SketchStar } from '../components/SketchIcons';
 import { MonotoneTheme } from '../constants/theme';
 
 export const CalendarScreen: React.FC = () => {
-  const { events, selectedChildFilter, parent, syncWithGoogleSheet, isSyncingSheet, sheetSyncStatus } = useApp();
+  const {
+    events,
+    circles,
+    selectedChildFilter,
+    selectedCircleFilter,
+    setSelectedCircleFilter,
+    parent,
+    syncWithGoogleSheet,
+    isSyncingSheet,
+    sheetSyncStatus,
+  } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [copiedCodeNotice, setCopiedCodeNotice] = useState<string | null>(null);
+
+  const activeCircle = circles.find((c) => c.id === selectedCircleFilter);
 
   const eventDates = useMemo(() => {
     return Array.from(new Set(events.map((e) => e.date)));
@@ -34,6 +47,16 @@ export const CalendarScreen: React.FC = () => {
     return events.filter((ev) => {
       if (selectedChildFilter !== 'all') {
         if (!ev.eligibleChildIds.includes(selectedChildFilter)) {
+          return false;
+        }
+      }
+
+      if (selectedCircleFilter !== 'all' && activeCircle) {
+        const matchesCircle =
+          ev.circleId === selectedCircleFilter ||
+          ev.circleName.toLowerCase().includes(activeCircle.name.toLowerCase()) ||
+          ev.description.toLowerCase().includes(activeCircle.name.toLowerCase());
+        if (!matchesCircle) {
           return false;
         }
       }
@@ -61,7 +84,7 @@ export const CalendarScreen: React.FC = () => {
 
       return true;
     });
-  }, [events, selectedChildFilter, selectedDate, selectedCategory, searchQuery]);
+  }, [events, selectedChildFilter, selectedCircleFilter, activeCircle, selectedDate, selectedCategory, searchQuery]);
 
   const handleOpenDetail = (event: EventItem) => {
     setSelectedEvent(event);
@@ -69,7 +92,16 @@ export const CalendarScreen: React.FC = () => {
   };
 
   const handleSyncSheet = async () => {
-    const msg = await syncWithGoogleSheet();
+    await syncWithGoogleSheet();
+  };
+
+  const handleCopyInvite = (circle: typeof circles[0]) => {
+    const inviteText = `Hey! Join our ${circle.name} group on KidSync with code: ${circle.code}`;
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(inviteText);
+    }
+    setCopiedCodeNotice(`Copied invite message for ${circle.name}!`);
+    setTimeout(() => setCopiedCodeNotice(null), 3000);
   };
 
   return (
@@ -126,6 +158,82 @@ export const CalendarScreen: React.FC = () => {
               </TouchableOpacity>
             )}
           </View>
+        </View>
+      )}
+
+      {/* Circle / Class Filter Ribbon */}
+      <View style={styles.circleRibbonContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.circleRibbonScroll}
+        >
+          <TouchableOpacity
+            style={[
+              styles.circleRibbonChip,
+              selectedCircleFilter === 'all' && styles.circleRibbonChipActive,
+            ]}
+            onPress={() => setSelectedCircleFilter('all')}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.circleRibbonText,
+                selectedCircleFilter === 'all' && styles.circleRibbonTextActive,
+              ]}
+            >
+              All Groups
+            </Text>
+          </TouchableOpacity>
+
+          {circles.map((c) => {
+            const isSelected = selectedCircleFilter === c.id;
+            return (
+              <TouchableOpacity
+                key={c.id}
+                style={[
+                  styles.circleRibbonChip,
+                  isSelected && styles.circleRibbonChipActive,
+                ]}
+                onPress={() => setSelectedCircleFilter(isSelected ? 'all' : c.id)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.circleRibbonText,
+                    isSelected && styles.circleRibbonTextActive,
+                  ]}
+                >
+                  {c.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Active Circle Info Banner */}
+      {activeCircle && (
+        <View style={styles.activeCircleBanner}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.activeCircleTitle}>{activeCircle.name}</Text>
+            <Text style={styles.activeCircleSubtitle}>
+              🔑 Code: {activeCircle.code} • {activeCircle.memberCount} Parents • {activeCircle.category}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.shareCodeBtn}
+            onPress={() => handleCopyInvite(activeCircle)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.shareCodeBtnText}>Share Code</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {copiedCodeNotice && (
+        <View style={styles.toastNotice}>
+          <Text style={styles.toastText}>{copiedCodeNotice}</Text>
         </View>
       )}
 
@@ -330,6 +438,82 @@ const styles = StyleSheet.create({
   },
   categoryTextActive: {
     color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  circleRibbonContainer: {
+    backgroundColor: MonotoneTheme.colors.surface,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: MonotoneTheme.colors.border,
+  },
+  circleRibbonScroll: {
+    paddingHorizontal: 16,
+    gap: 6,
+  },
+  circleRibbonChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: MonotoneTheme.radius.full,
+    backgroundColor: MonotoneTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: MonotoneTheme.colors.border,
+  },
+  circleRibbonChipActive: {
+    backgroundColor: MonotoneTheme.colors.ink,
+    borderColor: MonotoneTheme.colors.ink,
+  },
+  circleRibbonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: MonotoneTheme.colors.ink80,
+  },
+  circleRibbonTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  activeCircleBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: MonotoneTheme.colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: MonotoneTheme.colors.border,
+    gap: 10,
+  },
+  activeCircleTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: MonotoneTheme.colors.ink,
+  },
+  activeCircleSubtitle: {
+    fontSize: 10,
+    color: MonotoneTheme.colors.ink60,
+    marginTop: 1,
+  },
+  shareCodeBtn: {
+    backgroundColor: MonotoneTheme.colors.ink05,
+    borderWidth: 1,
+    borderColor: MonotoneTheme.colors.borderMedium,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: MonotoneTheme.radius.sm,
+  },
+  shareCodeBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: MonotoneTheme.colors.ink,
+  },
+  toastNotice: {
+    backgroundColor: MonotoneTheme.colors.ink,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: '700',
   },
   feed: {

@@ -47,28 +47,45 @@ const INITIAL_CIRCLES: Circle[] = [
     id: 'circle-summer',
     name: 'Summer Holiday Days Out',
     category: 'Google Drive Database',
+    code: 'SUMMER-2026',
     icon: 'calendar',
     color: '#111111',
     memberCount: 24,
     adminName: 'Richard Foster',
+    description: 'Live 60+ summer activities from Manchester & North West UK database.',
+  },
+  {
+    id: 'circle-school',
+    name: 'Year 4 Oak Class Hub',
+    category: 'Primary School Class',
+    code: 'YEAR4-OAK',
+    icon: 'briefcase',
+    color: '#111111',
+    memberCount: 28,
+    adminName: 'Mrs. Higgins & Class Reps',
+    description: 'School trips, class parties, and weekend play dates.',
   },
   {
     id: 'circle-1',
     name: 'West End U10 Strikers',
     category: 'Football Club',
+    code: 'U10-STRIKERS',
     icon: 'trophy',
     color: '#111111',
     memberCount: 16,
     adminName: 'Marcus Bell (Coach)',
+    description: 'Saturday league matches, training fixtures & weekend lift sharing.',
   },
   {
     id: 'circle-2',
     name: 'Prima Ballet Academy',
     category: 'Dance School',
+    code: 'PRIMA-BALLET',
     icon: 'music',
     color: '#111111',
     memberCount: 14,
     adminName: 'Miss Clara',
+    description: 'Weekly rehearsals, stage costumes & showcase transport.',
   },
 ];
 
@@ -81,16 +98,21 @@ interface AppContextType {
   carpools: Carpool[];
   contacts: PhoneContact[];
   selectedChildFilter: string;
+  selectedCircleFilter: string;
   isSyncingSheet: boolean;
   sheetSyncStatus: string;
   isRegistered: boolean;
   registerParent: (
     parentData: { name: string; phone: string; email: string; workEmail?: string },
-    initialChildren: Array<Omit<Child, 'id'>>
+    initialChildren: Array<Omit<Child, 'id'>>,
+    groupCode?: string
   ) => void;
+  loginExisting: (identifier: string) => boolean;
+  joinCircleWithCode: (code: string) => { success: boolean; message: string; circle?: Circle };
   updateParentProfile: (parentData: Partial<Parent>) => void;
   logoutAndReset: () => void;
   setSelectedChildFilter: (childId: string) => void;
+  setSelectedCircleFilter: (circleId: string) => void;
   syncWithGoogleSheet: () => Promise<string>;
   bookChild: (eventId: string, childId: string) => void;
   cancelBooking: (eventId: string, childId: string) => void;
@@ -114,14 +136,50 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [parent, setParent] = useState<Parent>(DEFAULT_PARENT);
-  const [isRegistered, setIsRegistered] = useState<boolean>(true);
-  const [circles, setCircles] = useState<Circle[]>(INITIAL_CIRCLES);
+  const [parent, setParent] = useState<Parent>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = window.localStorage.getItem('kidsync_parent');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          // fallback
+        }
+      }
+    }
+    return DEFAULT_PARENT;
+  });
+
+  const [isRegistered, setIsRegistered] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = window.localStorage.getItem('kidsync_registered');
+      if (saved !== null) {
+        return saved === 'true';
+      }
+    }
+    return true;
+  });
+
+  const [circles, setCircles] = useState<Circle[]>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = window.localStorage.getItem('kidsync_circles');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          // fallback
+        }
+      }
+    }
+    return INITIAL_CIRCLES;
+  });
+
   const [events, setEvents] = useState<EventItem[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [carpools, setCarpools] = useState<Carpool[]>([]);
   const [contacts, setContacts] = useState<PhoneContact[]>([]);
   const [selectedChildFilter, setSelectedChildFilter] = useState<string>('all');
+  const [selectedCircleFilter, setSelectedCircleFilter] = useState<string>('all');
   const [isSyncingSheet, setIsSyncingSheet] = useState<boolean>(false);
   const [sheetSyncStatus, setSheetSyncStatus] = useState<string>('');
 
@@ -130,9 +188,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     syncWithGoogleSheet();
   }, []);
 
+  const saveStorage = (newParent: Parent, regStatus: boolean, newCircles?: Circle[]) => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('kidsync_parent', JSON.stringify(newParent));
+      window.localStorage.setItem('kidsync_registered', regStatus ? 'true' : 'false');
+      if (newCircles) {
+        window.localStorage.setItem('kidsync_circles', JSON.stringify(newCircles));
+      }
+    }
+  };
+
   const registerParent = (
     parentData: { name: string; phone: string; email: string; workEmail?: string },
-    initialChildren: Array<Omit<Child, 'id'>>
+    initialChildren: Array<Omit<Child, 'id'>>,
+    groupCode?: string
   ) => {
     const newChildren: Child[] = initialChildren.map((c, i) => ({
       ...c,
@@ -149,16 +218,122 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       children: newChildren,
     };
 
+    let updatedCircles = [...circles];
+    if (groupCode) {
+      const cleanCode = groupCode.trim().toUpperCase();
+      const existing = updatedCircles.find((c) => c.code.toUpperCase() === cleanCode);
+      if (!existing) {
+        const customCircle: Circle = {
+          id: `circle-${Date.now()}`,
+          name: `${cleanCode} Activity Group`,
+          category: 'Community Group',
+          code: cleanCode,
+          icon: 'users',
+          color: '#111111',
+          memberCount: 1,
+          adminName: parentData.name,
+          description: `Custom group joined with code ${cleanCode}`,
+        };
+        updatedCircles = [customCircle, ...updatedCircles];
+      }
+    }
+
     setParent(newParent);
+    setCircles(updatedCircles);
     setIsRegistered(true);
+    saveStorage(newParent, true, updatedCircles);
+  };
+
+  const loginExisting = (identifier: string): boolean => {
+    const trimmed = identifier.trim().toLowerCase();
+    if (!trimmed) return false;
+
+    // Check against current parent or saved storage
+    if (
+      parent.phone.toLowerCase().includes(trimmed) ||
+      parent.email.toLowerCase().includes(trimmed) ||
+      parent.name.toLowerCase().includes(trimmed) ||
+      trimmed === 'demo' ||
+      trimmed === 'richard'
+    ) {
+      setIsRegistered(true);
+      saveStorage(parent, true);
+      return true;
+    }
+
+    // Auto sign-in with identifier as parent
+    const quickParent: Parent = {
+      id: `parent-${Date.now()}`,
+      name: trimmed.includes('@') ? trimmed.split('@')[0] : `Parent (${identifier})`,
+      phone: trimmed.includes('@') ? '+44 7700 900111' : identifier,
+      email: trimmed.includes('@') ? identifier : `${trimmed.replace(/\s+/g, '')}@family.co.uk`,
+      workEmail: '',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      children: [
+        {
+          id: `child-${Date.now()}`,
+          name: 'My Child',
+          age: 8,
+          color: '#111111',
+          avatarBg: '#F1F5F9',
+          allergies: 'None',
+          clubs: ['Summer Holiday Days Out'],
+        },
+      ],
+    };
+
+    setParent(quickParent);
+    setIsRegistered(true);
+    saveStorage(quickParent, true);
+    return true;
+  };
+
+  const joinCircleWithCode = (code: string): { success: boolean; message: string; circle?: Circle } => {
+    const cleanCode = code.trim().toUpperCase();
+    if (!cleanCode) {
+      return { success: false, message: 'Please enter a valid class or club code.' };
+    }
+
+    const found = INITIAL_CIRCLES.find((c) => c.code.toUpperCase() === cleanCode);
+    const existing = circles.find((c) => c.code.toUpperCase() === cleanCode);
+
+    if (existing) {
+      return { success: true, message: `You are already a member of ${existing.name}!`, circle: existing };
+    }
+
+    const targetCircle: Circle = found
+      ? { ...found, memberCount: found.memberCount + 1 }
+      : {
+          id: `circle-${Date.now()}`,
+          name: `${cleanCode} Class & Activities`,
+          category: 'Local Group',
+          code: cleanCode,
+          icon: 'users',
+          color: '#111111',
+          memberCount: 1,
+          adminName: 'Group Organizer',
+          description: `Joined via code ${cleanCode}`,
+        };
+
+    const nextCircles = [targetCircle, ...circles];
+    setCircles(nextCircles);
+    saveStorage(parent, isRegistered, nextCircles);
+    return { success: true, message: `Successfully joined ${targetCircle.name}!`, circle: targetCircle };
   };
 
   const updateParentProfile = (parentData: Partial<Parent>) => {
-    setParent((prev) => ({ ...prev, ...parentData }));
+    setParent((prev) => {
+      const updated = { ...prev, ...parentData };
+      saveStorage(updated, isRegistered);
+      return updated;
+    });
   };
 
   const logoutAndReset = () => {
     setIsRegistered(false);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('kidsync_registered', 'false');
+    }
   };
 
   const syncWithGoogleSheet = async (): Promise<string> => {
@@ -489,13 +664,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         carpools,
         contacts,
         selectedChildFilter,
+        selectedCircleFilter,
         isSyncingSheet,
         sheetSyncStatus,
         isRegistered,
         registerParent,
+        loginExisting,
+        joinCircleWithCode,
         updateParentProfile,
         logoutAndReset,
         setSelectedChildFilter,
+        setSelectedCircleFilter,
         syncWithGoogleSheet,
         bookChild,
         cancelBooking,

@@ -97,10 +97,12 @@ export interface Circle {
   id: string;
   name: string;
   category: string;
+  code: string;
   icon: string;
   color: string;
   memberCount: number;
   adminName: string;
+  description?: string;
 }
 
 export interface PhoneContact {
