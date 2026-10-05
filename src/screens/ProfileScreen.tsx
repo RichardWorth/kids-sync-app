@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     borderColor: MonotoneTheme.colors.ink,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: MonotoneTheme.radius.xs,
+    borderRadius: MonotoneTheme.radius.sm,
   },
   codeBadgeText: {
     fontSize: 11,
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
   },
   groupDesc: {
     fontSize: 11,
-    color: MonotoneTheme.colors.ink70,
+    color: MonotoneTheme.colors.ink60,
     lineHeight: 15,
   },
   groupFooter: {
@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
     backgroundColor: MonotoneTheme.colors.ink,
     paddingHorizontal: 8,
     paddingVertical: 3.5,
-    borderRadius: MonotoneTheme.radius.xs,
+    borderRadius: MonotoneTheme.radius.sm,
   },
   shareGroupBtnText: {
     fontSize: 10,
